@@ -1,0 +1,13 @@
+#!name=HelloTalk VIP
+#!desc=HelloTalk 会员状态本地改写：深度遍历接口返回 JSON，按类型修正 vip 相关字段（状态/等级/到期时间）；v10 补齐铭牌归属字段并本地伪造佩戴成功；v11 新增 HT币/钻石余额改 999999；v12 补首页 HT币（virtual_val）与兑换本地假成功；v13：顶部 $request 取值加 typeof 保护，手动运行不再 ReferenceError。仅改本地显示，服务器端校验的真实资产不受影响。
+#!author=豆包
+#!icon=crown.fill
+
+[Script]
+# 匹配所有 hellotalk 域名下的接口响应（含个人信息/VIP 接口），脚本只改带 vip 字段的 JSON
+http-response hellotalk script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=13, requires-body=true, timeout=10, tag=HelloTalk VIP改写
+# 佩戴铭牌请求：记录 props_id 到本地存储，供 user_vip_logo 改写时标记佩戴中（请求本身原样放行）
+http-request use_backpack_props script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=13, requires-body=true, timeout=10, tag=HelloTalk 铭牌佩戴记录
+
+[MITM]
+hostname = *.hellotalk.com, *.hellotalk8.com
