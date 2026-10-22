@@ -1,4 +1,4 @@
-// 喜马拉雅 会员本地改写 v1.0.2（2026-10-22，豆包维护）
+// 喜马拉雅 会员本地改写 v1.0.3（2026-10-22，豆包维护）
 // 机制依据：对 WeiGiegie/666 的 ximalaya.js 做反混淆分析后确认——原版是纯本地响应改写：
 //   翻 isFree/isPaid 旗标、删 activityInfo 付费推广块、download 接口从原响应里挖出真实 playUrl 重包成已授权。
 // 本版做同样的事，但：不改昵称/头像、不植入任何品牌；只动响应里已存在的字段，任何异常原样放行。
@@ -19,10 +19,16 @@
 //   ③ homePage 的 vipInfo 额外删 tip/jumpUrl（促销文案与购买跳转）；status/vipStatus 数值
 //      语义未经证实，本版只打 [XMLY] homediag 日志记录原值，不乱改，等真机结果再校准。
 //   播放/专辑侧改写已由抓包 diff 实证无误（isPaid→false、isAuthorized→true 等），本版不动。
+// v1.0.3 修复（决定性证据：把上游原脚本在本地沙箱对真机抓包 homePage 原始响应实跑一遍，
+//   逐字段 diff 其输出，共 24 处）：个人页昵称旁的「白金V5 / SVIP」徽章由另一组字段驱动——
+//   data.vipStatus→4、data.vLogoType→2、userGradeInfo.level→8（图标换 8 级图）、
+//   vipInfo/svipInfo/platinumVipInfo 三块 status→4 且新增 level=5；光翻 isVip 不出徽章。
+//   本版照此移植（patchHomeBadges）；上游顺带改的昵称/头像（品牌植入）与整删 serviceModule、
+//   childTag 翻面一律不学——保留用户本人昵称头像与「我的服务」模块。
 // 校准方式：用完 App 后回 Loon 日志列表，找 Script Type 为 HTTP-RESPONSE 的本脚本记录，
 //   里面有 [XMLY] v1.0.1 handler=xxx changed=N 字样即改写有落地；CRON 记录不算数。
 
-const VERSION = "v1.0.2";
+const VERSION = "v1.0.3";
 const EXPIRE_MS = Date.now() + 999 * 86400000; // 会员到期：自今天起 999 天（毫秒）
 const EXPIRE_S = Math.floor(EXPIRE_MS / 1000);
 
@@ -59,6 +65,7 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
         const vi = d.vipInfo || {};
         console.log(`[XMLY] homediag vipStatus=${d.vipStatus} vipInfo.status=${vi.status} parentPaidStatus=${d.parentPaidStatus}`);
         changed += patchVip(obj);
+        changed += patchHomeBadges(obj);
       }
       if (handler === "myvip") {
         changed += patchMyVip(obj);
@@ -224,5 +231,32 @@ function patchVipAgg(root) {
       if (typeof m.subTitle === "string" && /过期/.test(m.subTitle)) { m.subTitle = "有效期至 " + ds; n++; console.log(`[XMLY] vipagg module[${i}].subTitle->有效期至 ${ds}`); }
     });
   }
+  return n;
+}
+
+// homebadges（v1.0.3）：个人页昵称旁「白金V5 / SVIP」徽章的驱动字段。
+// 依据：上游原脚本对真机抓包 homePage 原始响应的实跑 diff（24 处变化）逐字段核对——
+// vipStatus 与三个 *Info.status 的有效值是 4（不是此前假设的 1），徽章还另需
+// vLogoType=2、userGradeInfo.level=8 及配套图标、*Info 新增 level=5。
+// 只移植徽章相关字段；昵称/头像/serviceModule/childTag 不动（保留用户本人信息与服务模块）。
+function patchHomeBadges(root) {
+  let n = 0;
+  const d = root && root.data;
+  if (!d || typeof d !== "object") return 0;
+  if (typeof d.vipStatus === "number" && d.vipStatus !== 4) { d.vipStatus = 4; n++; }
+  if (typeof d.vLogoType === "number" && d.vLogoType !== 2) { d.vLogoType = 2; n++; }
+  const ug = d.userGradeInfo;
+  if (ug && typeof ug === "object") {
+    if (typeof ug.level === "number" && ug.level !== 8) { ug.level = 8; n++; }
+    const icon8 = "https://imagev2.xmcdn.com/storages/25b2-audiofreehighqps/D2/85/GAqhQ6cL8dSjAAAMawOpSwKq.png!xmagick=webp";
+    if (typeof ug.icon === "string" && ug.icon !== icon8) { ug.icon = icon8; n++; }
+  }
+  for (const key of ["vipInfo", "svipInfo", "platinumVipInfo"]) {
+    const o = d[key];
+    if (!o || typeof o !== "object") continue;
+    if (typeof o.status === "number" && o.status !== 4) { o.status = 4; n++; }
+    if (o.level !== 5) { o.level = 5; n++; }
+  }
+  if (n > 0) console.log("[XMLY] homebadges vipStatus=4 vLogoType=2 gradeLevel=8 vipLevel=5");
   return n;
 }
