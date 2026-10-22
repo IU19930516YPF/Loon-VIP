@@ -35,7 +35,7 @@
 // 校准方式：用完 App 后回 Loon 日志列表，找 Script Type 为 HTTP-RESPONSE 的本脚本记录，
 //   里面有 [XMLY] v1.0.1 handler=xxx changed=N 字样即改写有落地；CRON 记录不算数。
 
-const VERSION = "v1.0.4";
+const VERSION = "v1.0.5";
 const EXPIRE_MS = Date.now() + 999 * 86400000; // 会员到期：自今天起 999 天（毫秒）
 const EXPIRE_S = Math.floor(EXPIRE_MS / 1000);
 
@@ -86,6 +86,9 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
       if (handler === "vipcheck") {
         changed += patchVipCheck(obj);
       }
+      if (handler === "decor") {
+        changed += patchDecor(obj);
+      }
       if (changed > 0) {
         console.log(`[XMLY] ${VERSION} handler=${handler} changed=${changed}`);
         $done({ body: JSON.stringify(obj) });
@@ -111,7 +114,7 @@ function route(u) {
   if (u.indexOf("mobile-playpage/track/v4/baseInfo/ts") !== -1) return "playpage";
   if (u.indexOf("mobile-playpage/playpage/track/qualityAndEffect") !== -1) return "quality";
   if (u.indexOf("mobile/download/v2/track") !== -1) return "download";
-  if (u.indexOf("decorationDetails/page") !== -1) return "skin";
+  if (u.indexOf("decorationDetails") !== -1) return "decor";
   if (u.indexOf("mobile-album/album/plant/grass") !== -1) return "grass";
   if (u.indexOf("mobile-playpage/playpage/tabs/v2") !== -1) return "tabs";
   return "other";
@@ -162,6 +165,28 @@ function ensureTrack(root) {
       }
       visit(v);
     }
+  };
+  visit(root);
+  return n;
+}
+
+// decor（v1.0.5）：装扮中心列表（decorationDetails）与详情（decorationDetails/page/v2）。
+// 抓包实证：已拥有的装扮 hasPrivilege=true（myDecoration 12 件全 true），商城 90 件全 false；
+// 详情页 wearCondition=false 时渲染「成为白金会员解锁装扮」按钮并按 buttonUrl 跳购买页。
+// 翻面这两个字段并摘掉购买按钮字段，客户端即按已解锁渲染；WearStatus（0 未佩戴 / 1 佩戴中）不动。
+function patchDecor(root) {
+  let n = 0;
+  const visit = (o) => {
+    if (!o || typeof o !== "object") return;
+    if (Array.isArray(o)) { o.forEach(visit); return; }
+    if (o.hasPrivilege === false) { o.hasPrivilege = true; n++; }
+    if (o.wearCondition === false) {
+      o.wearCondition = true; n++;
+      if ("buttonText" in o) { delete o.buttonText; n++; }
+      if ("buttonUrl" in o) { delete o.buttonUrl; n++; }
+      if ("buttonShortText" in o) { delete o.buttonShortText; n++; }
+    }
+    for (const k of Object.keys(o)) visit(o[k]);
   };
   visit(root);
   return n;
