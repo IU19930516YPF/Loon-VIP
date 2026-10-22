@@ -1,4 +1,4 @@
-// 喜马拉雅 会员本地改写 v1.0.1（2026-10-22，豆包维护）
+// 喜马拉雅 会员本地改写 v1.0.2（2026-10-22，豆包维护）
 // 机制依据：对 WeiGiegie/666 的 ximalaya.js 做反混淆分析后确认——原版是纯本地响应改写：
 //   翻 isFree/isPaid 旗标、删 activityInfo 付费推广块、download 接口从原响应里挖出真实 playUrl 重包成已授权。
 // 本版做同样的事，但：不改昵称/头像、不植入任何品牌；只动响应里已存在的字段，任何异常原样放行。
@@ -9,10 +9,20 @@
 //   对象」里找到期字段，目标对象没命中。本版改为：定位所有名字含 vip/svip 的子对象，整体套用
 //   会员字段集（旗标置 true、到期推 999 天、S[35]→S1、剩余天数 999），并打印命中的字段路径
 //   [XMLY] vipfields: ... 供日志校准。
+// v1.0.2 修复（依据 2026-10-22 用户真机抓包 481 条逐条 diff）：
+//   ① homePage 的 vipInfo 实际只有 {isVip, jumpUrl, status:2, tip:"免费领取7天会员"}，根本没有
+//      到期字段可推；个人页那张会员卡另有数据源 mobile-user/my/vip（cardInfo 的 strategyType
+//      明写「我的页卡片」），v1.0.1 及所有公开脚本都没覆盖它——这是个人页仍显示促销的真因。
+//   ② 本版新增 my/vip handler：每张卡 vipStatus→1、删 EXPIRED/NEVER 的 vipTraitType、清空
+//      cardInfo 促销条目；新增会员聚合页 content/v1 handler：userInfo.vipStatus→1、
+//      expireDate 推 999 天、VIP_CARD 模块 vipStatus→1 且「已过期」subTitle 改为有效期文案。
+//   ③ homePage 的 vipInfo 额外删 tip/jumpUrl（促销文案与购买跳转）；status/vipStatus 数值
+//      语义未经证实，本版只打 [XMLY] homediag 日志记录原值，不乱改，等真机结果再校准。
+//   播放/专辑侧改写已由抓包 diff 实证无误（isPaid→false、isAuthorized→true 等），本版不动。
 // 校准方式：用完 App 后回 Loon 日志列表，找 Script Type 为 HTTP-RESPONSE 的本脚本记录，
 //   里面有 [XMLY] v1.0.1 handler=xxx changed=N 字样即改写有落地；CRON 记录不算数。
 
-const VERSION = "v1.0.1";
+const VERSION = "v1.0.2";
 const EXPIRE_MS = Date.now() + 999 * 86400000; // 会员到期：自今天起 999 天（毫秒）
 const EXPIRE_S = Math.floor(EXPIRE_MS / 1000);
 
@@ -45,7 +55,16 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
         changed += ensureTrack(obj);
       }
       if (handler === "home") {
+        const d = obj.data || {};
+        const vi = d.vipInfo || {};
+        console.log(`[XMLY] homediag vipStatus=${d.vipStatus} vipInfo.status=${vi.status} parentPaidStatus=${d.parentPaidStatus}`);
         changed += patchVip(obj);
+      }
+      if (handler === "myvip") {
+        changed += patchMyVip(obj);
+      }
+      if (handler === "vipagg") {
+        changed += patchVipAgg(obj);
       }
       if (changed > 0) {
         console.log(`[XMLY] ${VERSION} handler=${handler} changed=${changed}`);
@@ -62,6 +81,8 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
 }
 
 function route(u) {
+  if (u.indexOf("mobile-user/my/vip") !== -1) return "myvip";
+  if (u.indexOf("business-vip-aggregation-channel-web/content") !== -1) return "vipagg";
   if (u.indexOf("mobile-user/v2/homePage") !== -1) return "home";
   if (u.indexOf("product/detail/v1") !== -1) return "product";
   if (u.indexOf("v1/album/track/ts") !== -1) return "album";
@@ -134,6 +155,8 @@ function patchVip(root) {
     for (const k of Object.keys(o)) {
       const v = o[k];
       const lk = k.toLowerCase();
+      // v1.0.2：vipInfo 里的促销文案与购买跳转直接删，个人页卡片不再露促销
+      if ((k === "tip" || k === "jumpUrl") && typeof v === "string") { delete o[k]; n++; hits.push(path + "." + k + "(del)"); continue; }
       if (typeof v === "boolean" && /^is/.test(k) && v !== true) { o[k] = true; n++; hits.push(path + "." + k); continue; }
       if (typeof v === "number" && /(expire|endtime|deadline|validuntil)/.test(lk)) {
         const nv = v > 1e11 ? EXPIRE_MS : (v > 1e9 ? EXPIRE_S : v);
@@ -160,5 +183,46 @@ function patchVip(root) {
   };
   visit(root, "$");
   if (hits.length) console.log("[XMLY] vipfields: " + hits.slice(0, 12).join(","));
+  return n;
+}
+
+// myvip（mobile-user/my/vip）：个人页会员卡的真实数据源（2026-10-22 抓包实证，
+// cardInfo.strategyType 明写「我的页卡片」）。data 是卡数组（VIP/儿童/SVIP/白金）：
+// 每卡 vipStatus 0→1、删 EXPIRED/NEVER 的 vipTraitType、清空 cardInfo 促销条目。
+// vipStatus=1 的语义属校准假设（0=非会员已由抓包证实），改动全打日志供下一轮定性。
+function patchMyVip(root) {
+  let n = 0;
+  const cards = root && root.data;
+  if (!Array.isArray(cards)) { console.log("[XMLY] myvip: data not array, skip"); return 0; }
+  cards.forEach((c, i) => {
+    if (!c || typeof c !== "object") return;
+    if (typeof c.vipStatus === "number" && c.vipStatus !== 1) { c.vipStatus = 1; n++; console.log(`[XMLY] myvip card[${i}] vipType=${c.vipType} vipStatus->1`); }
+    if (typeof c.vipTraitType === "string" && /(EXPIRED|NEVER)/.test(c.vipTraitType)) { delete c.vipTraitType; n++; console.log(`[XMLY] myvip card[${i}] vipTraitType(del)`); }
+    if (Array.isArray(c.cardInfo) && c.cardInfo.length > 0) { c.cardInfo = []; n++; console.log(`[XMLY] myvip card[${i}] cardInfo cleared`); }
+  });
+  return n;
+}
+
+// vipagg（business-vip-aggregation-channel-web/content/v1）：会员聚合页。
+// userInfo 是全站唯一带真 expireDate 的地方：vipStatus 3(过期)→1、expireDate 推 999 天；
+// modules 里 VIP_CARD* 卡片同步翻 vipStatus，「已于…过期」的 subTitle 改成有效期文案。
+function patchVipAgg(root) {
+  let n = 0;
+  const d = root && root.data;
+  if (!d || typeof d !== "object") return 0;
+  const ui = d.userInfo;
+  if (ui && typeof ui === "object") {
+    if (typeof ui.vipStatus === "number" && ui.vipStatus !== 1) { ui.vipStatus = 1; n++; console.log("[XMLY] vipagg userInfo.vipStatus->1"); }
+    if (typeof ui.expireDate === "number" && ui.expireDate !== EXPIRE_MS) { ui.expireDate = EXPIRE_MS; n++; console.log("[XMLY] vipagg userInfo.expireDate->+999d"); }
+  }
+  if (Array.isArray(d.modules)) {
+    const dt = new Date(EXPIRE_MS);
+    const ds = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+    d.modules.forEach((m, i) => {
+      if (!m || typeof m !== "object" || typeof m.moduleType !== "string" || m.moduleType.indexOf("VIP_CARD") === -1) return;
+      if (typeof m.vipStatus === "number" && m.vipStatus !== 1) { m.vipStatus = 1; n++; console.log(`[XMLY] vipagg module[${i}].vipStatus->1`); }
+      if (typeof m.subTitle === "string" && /过期/.test(m.subTitle)) { m.subTitle = "有效期至 " + ds; n++; console.log(`[XMLY] vipagg module[${i}].subTitle->有效期至 ${ds}`); }
+    });
+  }
   return n;
 }
