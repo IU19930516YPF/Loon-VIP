@@ -1,4 +1,4 @@
-// 喜马拉雅 会员本地改写 v1.0.3（2026-10-22，豆包维护）
+// 喜马拉雅 会员本地改写 v1.0.4（2026-10-22，豆包维护）
 // 机制依据：对 WeiGiegie/666 的 ximalaya.js 做反混淆分析后确认——原版是纯本地响应改写：
 //   翻 isFree/isPaid 旗标、删 activityInfo 付费推广块、download 接口从原响应里挖出真实 playUrl 重包成已授权。
 // 本版做同样的事，但：不改昵称/头像、不植入任何品牌；只动响应里已存在的字段，任何异常原样放行。
@@ -25,10 +25,17 @@
 //   vipInfo/svipInfo/platinumVipInfo 三块 status→4 且新增 level=5；光翻 isVip 不出徽章。
 //   本版照此移植（patchHomeBadges）；上游顺带改的昵称/头像（品牌植入）与整删 serviceModule、
 //   childTag 翻面一律不学——保留用户本人昵称头像与「我的服务」模块。
+// v1.0.4（依据 2026-10-22 第二份抓包 686 条）：v1.0.3 真机结果——白金V5 徽章已出、
+//   SVIP 蓝徽章未出；且已核实手机收到的 homePage 改写与上游输出逐字段一致，SVIP 徽章
+//   不由 homePage 驱动。本版新增覆盖两个此前没人管的会员状态接口（抓包里均为全 false）：
+//   会员中心 user/vip-info/v1（data.vips[] 按 vipType 逐项 vip 旗标，全翻 true）、
+//   m 站 vip/check/user（data.isVip→true）。若 App 拼装头部徽章时读这两个接口，SVIP 徽章即出。
+//   另：两份抓包（481+686 条，含冷启动）均无底部导航栏配置响应，全局开关
+//   mobile_switch_ios 亦无 tab 开关——底部栏为 App 内置写死，改写插件动不了，不在本版范围。
 // 校准方式：用完 App 后回 Loon 日志列表，找 Script Type 为 HTTP-RESPONSE 的本脚本记录，
 //   里面有 [XMLY] v1.0.1 handler=xxx changed=N 字样即改写有落地；CRON 记录不算数。
 
-const VERSION = "v1.0.3";
+const VERSION = "v1.0.4";
 const EXPIRE_MS = Date.now() + 999 * 86400000; // 会员到期：自今天起 999 天（毫秒）
 const EXPIRE_S = Math.floor(EXPIRE_MS / 1000);
 
@@ -73,6 +80,12 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
       if (handler === "vipagg") {
         changed += patchVipAgg(obj);
       }
+      if (handler === "vipinfo") {
+        changed += patchVipInfo(obj);
+      }
+      if (handler === "vipcheck") {
+        changed += patchVipCheck(obj);
+      }
       if (changed > 0) {
         console.log(`[XMLY] ${VERSION} handler=${handler} changed=${changed}`);
         $done({ body: JSON.stringify(obj) });
@@ -90,6 +103,8 @@ if (typeof $request === "undefined" || typeof $response === "undefined") {
 function route(u) {
   if (u.indexOf("mobile-user/my/vip") !== -1) return "myvip";
   if (u.indexOf("business-vip-aggregation-channel-web/content") !== -1) return "vipagg";
+  if (u.indexOf("business-vip-center-mobile-web/user/vip-info") !== -1) return "vipinfo";
+  if (u.indexOf("/vip/check/user/") !== -1) return "vipcheck";
   if (u.indexOf("mobile-user/v2/homePage") !== -1) return "home";
   if (u.indexOf("product/detail/v1") !== -1) return "product";
   if (u.indexOf("v1/album/track/ts") !== -1) return "album";
@@ -231,6 +246,27 @@ function patchVipAgg(root) {
       if (typeof m.subTitle === "string" && /过期/.test(m.subTitle)) { m.subTitle = "有效期至 " + ds; n++; console.log(`[XMLY] vipagg module[${i}].subTitle->有效期至 ${ds}`); }
     });
   }
+  return n;
+}
+
+// vipinfo（business-vip-center-mobile-web/user/vip-info/v1/<uid>）：会员中心的用户会员清单，
+// data.vips[] 按 vipType 逐项给 vip 旗标（抓包实测 1/4/5 三项全 false）。全翻 true，
+// 与其余接口的改写状态保持一致；App 若拼装头部 SVIP 徽章时读此接口，徽章即出。
+function patchVipInfo(root) {
+  let n = 0;
+  const d = root && root.data;
+  if (!d || !Array.isArray(d.vips)) return 0;
+  d.vips.forEach((v) => {
+    if (v && typeof v === "object" && v.vip === false) { v.vip = true; n++; console.log(`[XMLY] vipinfo vipType=${v.vipType} vip->true`); }
+  });
+  return n;
+}
+
+// vipcheck（m.ximalaya.com/vip/check/user/<uid>）：极简会员校验，data.isVip 翻 true。
+function patchVipCheck(root) {
+  let n = 0;
+  const d = root && root.data;
+  if (d && typeof d === "object" && d.isVip === false) { d.isVip = true; n++; console.log("[XMLY] vipcheck isVip->true"); }
   return n;
 }
 
