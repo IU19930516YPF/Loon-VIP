@@ -1,5 +1,5 @@
 #!name=喜马拉雅会员本地改写
-#!desc=v1.0.1：仿 WeiGiegie 版机制的干净重写——个人页/专辑/播放页/下载/音质接口的权益旗标本地翻面（isPaid→false、isFree→true、删付费推广块），播放与下载用服务器原响应里已有的真实音频地址。v1.0.1 修复个人页会员不显示：home 接口改为定向改 vipInfo/svipInfo 子对象（旗标置 true、到期推 999 天、S3/S5 档位码改 S1），并在日志打印命中的字段路径 [XMLY] vipfields 供校准。无品牌植入、不改昵称头像、MITM 只覆盖 ximalaya/xmcdn 两个域名。硬边界：服务器复核的权益（单购专辑、儿童会员等）过不去；服务器没下发的地址变不出来。装后请回 Loon 日志找 HTTP-RESPONSE 记录里的 [XMLY] 字样校准。
+#!desc=v1.0.2：仿 WeiGiegie 版机制的干净重写——专辑/播放页/下载/音质接口的权益旗标本地翻面（isPaid→false、isFree→true、删付费推广块），播放与下载用服务器原响应里已有的真实音频地址。v1.0.2 依真机抓包修复个人页：个人页会员卡的真实数据源是 mobile-user/my/vip（旧版未覆盖），本版新增该接口与会员聚合页 content/v1 的改写（vipStatus 翻面、到期推 999 天、清促销条目），homePage 的 vipInfo 同步删促销文案与购买跳转。无品牌植入、不改昵称头像、MITM 只覆盖 ximalaya/xmcdn 两个域名。硬边界：服务器复核的权益（单购专辑、儿童会员等）过不去；服务器没下发的地址变不出来。装后请回 Loon 日志找 HTTP-RESPONSE 记录里的 [XMLY] 字样校准。
 #!author=Muse（豆包维护）
 #!homepage=https://www.ximalaya.com
 
@@ -13,7 +13,7 @@
 ^https?://mobile\.ximalaya\.com/business-sale-promotion-guide-mobile-web/popup/info/ reject
 
 [Script]
-http-response ^https?:\/\/.+((ximalaya)|(xmcdn))\..+(mobile-user\/v2\/homePage|product\/detail\/v1|v1\/album\/track\/ts|mobile-playpage\/track\/v4\/baseInfo\/ts|mobile-playpage\/playpage\/tabs\/v2|mobile-playpage\/playpage\/track\/qualityAndEffect|mobile\/download\/v2\/track|mobile-user-grade\/decoratorV2\/decorationDetails\/page|mobile-album\/album\/plant\/grass) script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/xmly.js?v=1.0.1, requires-body=true, max-size=1048576, tag=喜马拉雅会员改写, enable=true
+http-response ^https?:\/\/.+((ximalaya)|(xmcdn))\..+(mobile-user\/v2\/homePage|mobile-user\/my\/vip|business-vip-aggregation-channel-web\/content\/v1|product\/detail\/v1|v1\/album\/track\/ts|mobile-playpage\/track\/v4\/baseInfo\/ts|mobile-playpage\/playpage\/tabs\/v2|mobile-playpage\/playpage\/track\/qualityAndEffect|mobile\/download\/v2\/track|mobile-user-grade\/decoratorV2\/decorationDetails\/page|mobile-album\/album\/plant\/grass) script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/xmly.js?v=1.0.2, requires-body=true, max-size=1048576, tag=喜马拉雅会员改写, enable=true
 
 [MITM]
 hostname = *.ximalaya.com, *.xmcdn.com
