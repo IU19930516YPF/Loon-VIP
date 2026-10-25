@@ -1,0 +1,10 @@
+#!name=爱企查VIP本地改写
+#!desc=v1.0.0：会员中心接口 svip 状态改 1、到期改 2099-12-31，App 本地显示 SVIP。仅本地生效：高级查询等功能若走服务器校验，仍按真实会员判定。改写失败/接口变样时原样放行。
+#!author=Muse（豆包维护）
+#!homepage=https://aiqicha.baidu.com
+
+[Script]
+http-response ^https?:\/\/aiqicha\.baidu\.com\/usercenter\/getvipinfoajax script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/aiqicha.js?v=1.0.0, requires-body=true, max-size=1048576, tag=爱企查会员中心, enable=true
+
+[MITM]
+hostname = aiqicha.baidu.com
