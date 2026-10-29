@@ -1,0 +1,9 @@
+#!name=咸鱼之王温和版
+#!desc=v1.0.0：温和版配置改写，难度仅在原值大于3时减2，数量不改，不改金币预览。只降低触发概率，不是绕过检测，服务器按真实数据校验，高关卡仍有被判定异常并重置的风险，主号慎用，建议小号先试。
+#!author=IU19930516YPF
+
+[Script]
+http-response ^https?:\/\/xxz-xyzw-res\.hortorgames\.com\/remote\/config\/import\/10 script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/xyzw-safe.js?v=1.0.0, requires-body=true, max-size=1048576, tag=咸鱼之王温和版, enable=true
+
+[MITM]
+hostname = xxz-xyzw-res.hortorgames.com
