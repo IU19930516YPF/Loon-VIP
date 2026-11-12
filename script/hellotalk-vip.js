@@ -52,7 +52,7 @@ if (typeof $response === "undefined") {
       if (pid == null) { const m2 = URL.match(/props_id=(\d+)/); if (m2) pid = Number(m2[1]); }
       if (pid != null && typeof $persistentStore !== "undefined") {
         $persistentStore.write(String(pid), WORN_KEY);
-        console.log("HTVIP v12 WORN RECORDED: props_id=" + pid);
+        console.log("HTVIP v13 WORN RECORDED: props_id=" + pid);
       }
     }
   } catch (e) {}
@@ -60,16 +60,16 @@ if (typeof $response === "undefined") {
 } else {
   // ---------- 响应阶段 ----------
   let body = $response.body;
-  console.log("HTVIP v12 RUN: " + URL);
+  console.log("HTVIP v13 RUN: " + URL);
 
   // 佩戴接口：直接伪造成功（前端据此本地切换并重拉列表）
   if (/use_backpack_props/.test(URL)) {
-    console.log("HTVIP v12 WEAR FAKE-SUCCESS");
+    console.log("HTVIP v13 WEAR FAKE-SUCCESS");
     $done({ body: JSON.stringify({ code: 0, status: 0, msg: "ok", data: {} }) });
   } else if (/settle_center\/redeem_(coin|vip)/.test(URL)) {
     // 兑换接口：服务器必拒（真实余额不足+请求带签名），本地改成成功仅供 App 显示；
     // 币不会真到账，服务器余额不变。
-    console.log("HTVIP v12 REDEEM FAKE-SUCCESS: " + URL);
+    console.log("HTVIP v13 REDEEM FAKE-SUCCESS: " + URL);
     $done({ body: JSON.stringify({ status: 0, msg: "success", data: null }) });
   } else if (!body) {
     $done({});
@@ -120,12 +120,12 @@ if (typeof $response === "undefined") {
           setF(data, "total_amount", 999999);
           setF(data, "remain_amount", 999999);
           setF(data, "user_virtual_val", 999999);
-          console.log("HTVIP v12 BALANCE SET: diamond/coin fields -> 999999");
+          console.log("HTVIP v13 BALANCE SET: diamond/coin fields -> 999999");
         } else if (/query_user_virtual_val/.test(URL)) {
           // 首页（我页）左上角 HT币数字来源：data.virtual_val
           targeted = true;
           setF(data, "virtual_val", 999999);
-          console.log("HTVIP v12 VIRTUAL_VAL SET: -> 999999");
+          console.log("HTVIP v13 VIRTUAL_VAL SET: -> 999999");
         } else if (/user_vip_logo/.test(URL)) {
           targeted = true;
           setF(data, "vip_type", 2);
@@ -162,7 +162,7 @@ if (typeof $response === "undefined") {
               return it;
             });
             changed = true;
-            console.log("PLATE INJECT v12: " + list.length + " nameplates, worn id=" + (worn ? worn.id : -1));
+            console.log("PLATE INJECT v13: " + list.length + " nameplates, worn id=" + (worn ? worn.id : -1));
           }
 
           if (worn) {
