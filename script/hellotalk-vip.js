@@ -1,7 +1,9 @@
-// HelloTalk VIP 改写 · v15（铭牌佩戴 + 余额 + 首页HT币 + 兑换假成功）
-// v15（2026-11-17）：插件 http-response 正则收窄到只匹配 VIP 接口
-// （vip|virtual_pay|redeem_|use_backpack_props），聊天长连接不再触发脚本
-// （插件开着也能发消息）；脚本逻辑与 v13/v14 完全相同，未改动。
+// HelloTalk VIP 改写 · v16（铭牌佩戴 + 余额 + 首页HT币 + 兑换假成功）
+// v16（2026-11-17）：插件 http-response 正则改为只匹配确切的 VIP 接口名
+// （vip_attribute/vip_status/vip_info/user_vip_logo/use_backpack_props/redeem 等），
+// 实测确认：只开 MITM 不跑脚本时聊天能发，问题在脚本不在 MITM；
+// 脚本逻辑与 v13/v14/v15 完全相同，未改动。
+// v15（2026-11-17）：正则收窄到 vip/virtual_pay/redeem_/use_backpack_props。
 // v14（2026-11-17）：插件 MITM 范围收窄到只拦 api-cn.hellotalk8.com。
 // v13（2026-10-21）：顶部 $request 取值加 typeof 保护——手动运行/无请求上下文
 // 时不再 ReferenceError，安静走请求分支 $done 放行（bbdanci v1.0.3 同款保护）。
