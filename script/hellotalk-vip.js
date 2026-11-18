@@ -1,4 +1,6 @@
-// HelloTalk VIP 改写 · v16（铭牌佩戴 + 余额 + 首页HT币 + 兑换假成功）
+// HelloTalk VIP 改写 · v17（铭牌佩戴 + 余额 + 首页HT币 + 兑换假成功）
+// v17（2026-11-19）：禁用通用深度遍历（只改已知 VIP 接口的指定字段，非 VIP 接口原样放行），
+// 修复插件开着用一阵子就断连的问题：通用遍历会误改非 VIP 响应，干扰 App 会话刷新。
 // v16（2026-11-17）：插件 http-response 正则改为只匹配确切的 VIP 接口名
 // （vip_attribute/vip_status/vip_info/user_vip_logo/use_backpack_props/redeem 等），
 // 实测确认：只开 MITM 不跑脚本时聊天能发，问题在脚本不在 MITM；
@@ -180,7 +182,7 @@ if (typeof $response === "undefined") {
         }
       }
 
-      if (!targeted) {
+      if (false) { // v17: 通用深度遍历已禁用（只改已知 VIP 接口，非 VIP 原样放行，防 App 断连）
         // ---------- 通用深度遍历（其他接口，逻辑同 v9） ----------
         const AGGRO = /vip|member|privilege|profile|\/user|userinfo|myinfo/i.test(URL);
         function isExpiryKey(k) {
