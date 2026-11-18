@@ -1,13 +1,13 @@
 #!name=HelloTalk VIP
-#!desc=v16: 脚本只在确切的 VIP 接口名上跑（vip_attribute/vip_status/vip_info/user_vip_logo/use_backpack_props/redeem 等），聊天不再触发脚本，插件开着也能发消息；MITM 仍只拦 api-cn.hellotalk8.com。
+#!desc=v17: 脚本只在确切的 VIP 接口名上跑（vip_attribute/vip_status/vip_info/user_vip_logo/use_backpack_props/redeem 等），聊天不再触发脚本，插件开着也能发消息；MITM 仍只拦 api-cn.hellotalk8.com。
 #!author=豆包
 #!icon=crown.fill
 
 [Script]
 # 匹配所有 hellotalk 域名下的接口响应（含个人信息/VIP 接口），脚本只改带 vip 字段的 JSON
-http-response (vip_attribute|vip_status|vip_info|user_virtual_info|query_user_virtual_val|user_vip_logo|use_backpack_props|redeem_coin|redeem_vip) script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=16, requires-body=true, timeout=10, tag=HelloTalk VIP改写
+http-response (vip_attribute|vip_status|vip_info|user_virtual_info|query_user_virtual_val|user_vip_logo|use_backpack_props|redeem_coin|redeem_vip) script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=17, requires-body=true, timeout=10, tag=HelloTalk VIP改写
 # 佩戴铭牌请求：记录 props_id 到本地存储，供 user_vip_logo 改写时标记佩戴中（请求本身原样放行）
-http-request use_backpack_props script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=16, requires-body=true, timeout=10, tag=HelloTalk 铭牌佩戴记录
+http-request use_backpack_props script-path=https://raw.githubusercontent.com/IU19930516YPF/Loon-VIP/main/script/hellotalk-vip.js?v=17, requires-body=true, timeout=10, tag=HelloTalk 铭牌佩戴记录
 
 [MITM]
 hostname = api-cn.hellotalk8.com
